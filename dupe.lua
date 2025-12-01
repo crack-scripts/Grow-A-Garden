@@ -34,7 +34,7 @@ SERVER HOP
 ]]
 pcall(function()
     queue_on_teleport([[
-        loadstring(game:HttpGet("YOUR_SCRIPT_LINK_HERE"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/crack-scripts/Grow-A-Garden/refs/heads/main/dupe.lua"))()
     ]])
 end)
 
